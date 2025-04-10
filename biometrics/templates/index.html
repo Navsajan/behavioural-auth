@@ -1,0 +1,332 @@
+<!DOCTYPE html>  <html lang="en">  
+<head>  
+    <meta charset="UTF-8">  
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">  
+    <title>Live User Interaction Tracker</title>  
+    <style>  
+        body {  
+            width: 300vw;  
+            height: 200vh;  
+            overflow: auto;  
+            white-space: nowrap;  
+            display: flex;  
+            justify-content: center;  
+            align-items: center;  
+        }  
+        .center-container {  
+            text-align: center;  
+            background-color: white;  
+            padding: 20px;  
+            border-radius: 10px;  
+            box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);  
+            
+        }  
+
+    </style>  
+    <script>  
+        let keyPressTimes = [], flightTimes = [], dwellTimes = [];  
+        let keyPressCount = 0, errorCount = 0, doubleClickCount = 0;  
+        let clickDwellTimes = [], clickFlightTimes = [], lastClickTime = 0;  
+        let scrollX = 0, scrollY = 0, pressureTouch = 0;  
+        let swipeSpeeds = [], lastTouchY = null;  
+        let tiltAngles = [];  
+        let sessionStartTime = Date.now();  
+        let generatedCaptcha = "";
+  
+        function generateCaptcha() {
+        const canvas = document.getElementById("captcha_canvas");
+        const ctx = canvas.getContext("2d");
+        ctx.clearRect(0, 0, canvas.width, canvas.height); // Clear canvas
+    
+        // Generate random 5-character CAPTCHA
+        const chars = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789";
+        generatedCaptcha = "";
+        for (let i = 0; i < 5; i++) {
+            generatedCaptcha += chars.charAt(Math.floor(Math.random() * chars.length));
+        }
+    
+        // Set background color and draw text
+        ctx.fillStyle = "#f0f0f0";
+        ctx.fillRect(0, 0, canvas.width, canvas.height);
+    
+        // Draw random lines for noise
+        for (let i = 0; i < 5; i++) {
+            ctx.beginPath();
+            ctx.moveTo(Math.random() * canvas.width, Math.random() * canvas.height);
+            ctx.lineTo(Math.random() * canvas.width, Math.random() * canvas.height);
+            ctx.strokeStyle = "rgba(0,0,0,0.2)";
+            ctx.stroke();
+        }
+    
+        // Draw CAPTCHA text
+        ctx.font = "24px Arial";
+        ctx.fillStyle = "#000";
+        ctx.textBaseline = "middle";
+        ctx.fillText(generatedCaptcha, 20, 25);
+        }
+    
+    function resetValues() {  
+        keyPressTimes = [];  
+        flightTimes = [];  
+        dwellTimes = [];  
+        swipeSpeeds = [];  
+        tiltAngles = [];  
+        keyPressCount = 0;  
+        errorCount = 0;  
+        doubleClickCount = 0;  
+        clickDwellTimes = [];  
+        clickFlightTimes = [];  
+        lastClickTime = 0;  
+        scrollX = 0;  
+        scrollY = 0;  
+        pressureTouch = 0;  
+        sessionStartTime = Date.now();  
+
+        ["cpm", "error_rate", "click_dwell_avg", "click_flight_avg",  
+         "dwell_avg", "dwell_std", "flight_avg", "flight_std", "pressure_touch",  
+         "scroll_x", "scroll_y", "double_click","swipe_speed_avg", "tilt_angle_avg"]  
+        .forEach(id => document.getElementById(id).value = "");  
+    }  
+
+    document.addEventListener("DOMContentLoaded", resetValues);  
+
+    document.addEventListener("keydown", function(event) {  
+        let timeStamp = Date.now();  
+        if (keyPressTimes.length > 0) {  
+            flightTimes.push(timeStamp - keyPressTimes[keyPressTimes.length - 1]);  
+        }  
+        keyPressTimes.push(timeStamp);  
+        keyPressCount++;  
+        document.getElementById("cpm").value = ((keyPressCount / ((Date.now() - sessionStartTime) / 60000))).toFixed(2);  
+    });  
+
+    document.addEventListener("keyup", function(event) {  
+        let timeStamp = Date.now();  
+        if (keyPressTimes.length > 0) {  
+            dwellTimes.push(timeStamp - keyPressTimes[keyPressTimes.length - 1]);  
+        }  
+        if (event.key === "Backspace" || event.key === "Delete") {  
+            errorCount++;  
+            document.getElementById("error_rate").value = errorCount;  
+        }  
+    });  
+
+    function calculateAverage(arr) {  
+        return arr.length ? (arr.reduce((a, b) => a + b, 0) / arr.length).toFixed(2) : 0;  
+    }  
+
+    function calculateStdDev(arr) {  
+        if (arr.length < 2) return 0;  
+        let mean = arr.reduce((a, b) => a + b, 0) / arr.length;  
+        let variance = arr.reduce((sum, val) => sum + Math.pow(val - mean, 2), 0) / (arr.length - 1);  
+        return Math.sqrt(variance).toFixed(2);  
+    }  
+
+    document.addEventListener("dblclick", function() {  
+        doubleClickCount++;  
+        document.getElementById("double_click").value = doubleClickCount;  
+    });  
+
+    function updateScrollValues() {  
+        let newScrollX = window.visualViewport ? window.visualViewport.pageLeft : window.scrollX;  
+        let newScrollY = window.visualViewport ? window.visualViewport.pageTop : window.scrollY;  
+        document.getElementById("scroll_x").value = newScrollX.toFixed(2);  
+        document.getElementById("scroll_y").value = newScrollY.toFixed(2);  
+    }  
+
+    window.addEventListener("scroll", updateScrollValues, { passive: true });  
+    document.addEventListener("touchmove", updateScrollValues, { passive: true });  
+    setInterval(updateScrollValues, 100);  
+
+    let touchStartTime = 0;
+
+document.addEventListener("touchstart", function(event) {
+    if (event.touches.length > 0) {
+        touchStartTime = Date.now();
+        const touch = event.touches[0];
+        
+        let force = touch.force;
+
+        if (typeof force === "number" && force > 0) {
+            // Device supports force
+            categorizePressure(force);
+        } else {
+            // Fallback using radius or touch time
+            // Option 1: Use touch area as a proxy (radiusX)
+            let area = touch.radiusX || 1;
+
+            // Option 2: Use touch duration (see touchend below)
+            document.getElementById("pressure_touch").value = "Estimating pressure...";
+
+            console.log(`Touch area radius: ${area}`);
+        }
+    }
+});
+
+document.addEventListener("touchend", function(event) {
+    let duration = Date.now() - touchStartTime;
+
+    // Fallback estimation: longer press = higher pressure
+    let estimatedPressure = 0;
+    if (duration < 100) {
+        estimatedPressure = 0.1; // Light
+    } else if (duration < 300) {
+        estimatedPressure = 0.5; // Medium
+    } else {
+        estimatedPressure = 1.0; // Hard
+    }
+
+    categorizePressure(estimatedPressure);
+});
+
+function categorizePressure(pressureTouch) {
+    let pressureLevel = "Unknown";
+    if (pressureTouch === 0) {
+        pressureLevel = "No Touch";
+    } else if (pressureTouch > 0 && pressureTouch < 0.5) {
+        pressureLevel = "Soft Touch";
+    } else if (pressureTouch >= 0.5 && pressureTouch < 1) {
+        pressureLevel = "Medium Touch";
+    } else if (pressureTouch === 1) {
+        pressureLevel = "Hard Touch";
+    }
+
+    console.log('Estimated Pressure: ${pressureTouch.toFixed(2)} (${pressureLevel})');
+    document.getElementById("pressure_touch").value =`${pressureTouch.toFixed(2)} (${pressureLevel})`;
+
+    // Optional display
+    let displayEl = document.getElementById("pressure_display");
+    if (displayEl) {
+        displayEl.innerText = '${pressureTouch.toFixed(2)} (${pressureLevel})';
+    }
+}  
+    document.addEventListener("touchmove", function(event) {  
+        if (event.touches.length > 0 && lastTouchY !== null) {  
+            let deltaY = event.touches[0].clientY - lastTouchY;  
+            let timeDelta = event.timeStamp - sessionStartTime;  
+            let speed = Math.abs(deltaY / timeDelta);  
+            swipeSpeeds.push(speed);  
+            document.getElementById("swipe_speed_avg").value = calculateAverage(swipeSpeeds);  
+            lastTouchY = event.touches[0].clientY;  
+        }  
+    });  
+
+    window.addEventListener("deviceorientation", function(event) {  
+        let tilt = Math.sqrt(event.beta ** 2 + event.gamma ** 2).toFixed(2);  
+        tiltAngles.push(parseFloat(tilt));  
+        document.getElementById("tilt_angle_avg").value = calculateAverage(tiltAngles);  
+    });  
+
+
+
+function solveCaptcha() {  
+    let userInput = document.getElementById("captcha_input").value;  
+    let captchaText = document.getElementById("captcha_text").textContent;  
+    if (userInput === generatedCaptcha) {  
+        alert("CAPTCHA Solved!");  
+
+        const selectedUser = document.getElementById("userDropdown").value;  
+        const selectedGender = document.getElementById("genderDropdown").value;  
+
+        let data = {  
+            cpm: document.getElementById("cpm").value,  
+            error_rate: document.getElementById("error_rate").value,  
+            dwell_avg: calculateAverage(dwellTimes),  
+            dwell_std: calculateStdDev(dwellTimes),  
+            flight_avg: calculateAverage(flightTimes),  
+            flight_std: calculateStdDev(flightTimes),  
+            click_dwell_avg: calculateAverage(clickDwellTimes),  
+            click_flight_avg: calculateAverage(clickFlightTimes),  
+            pressure_touch: document.getElementById("pressure_touch").value,  
+            scroll_x: document.getElementById("scroll_x").value,  
+            scroll_y: document.getElementById("scroll_y").value,  
+            double_click: document.getElementById("double_click").value,  
+            swipe_speed_avg: document.getElementById("swipe_speed_avg").value,  
+            tilt_angle_avg: document.getElementById("tilt_angle_avg").value,  
+            user: selectedUser,  
+            gender: selectedGender  
+        };  
+
+        fetch("/api/save_behavior/", {  
+            method: "POST",  
+            headers: { "Content-Type": "application/json" },  
+            body: JSON.stringify(data)  
+        })  
+        .then(response => response.json())  
+        .then(data => console.log("Data saved:", data))  
+        .catch(error => console.error("Error saving data:", error));  
+    } else {  
+        alert("Wrong CAPTCHA, try again!");  
+          
+        generateCaptcha();  
+    }
+
+}
+window.onload = generateCaptcha;
+</script>
+
+</head>  
+<body>  <div class="center-container">  
+    <h2>Live User Interaction Tracker</h2>  
+    <form>  
+        <label for="userDropdown">Select User:</label>  
+        <select id="userDropdown">  
+          <option value="user1">User 1</option>  
+          <option value="user2">User 2</option>  
+          <option value="user3">User 3</option>  
+          <option value="user4">User 4</option>  
+          <option value="user5">User 5</option>  
+          <option value="user6">User 6</option>  
+          <option value="user7">User 7</option>  
+          <option value="user8">User 8</option>  
+          <option value="user9">User 9</option>  
+          <option value="user10">User 10</option>  
+          <option value="user11">User 11</option>  
+          <option value="user12">User 12</option>  
+          <option value="user13">User 13</option>  
+          <option value="user14">User 14</option>  
+          <option value="user15">User 15</option>  
+          <option value="user16">User 16</option>  
+          <option value="user17">User 17</option>  
+          <option value="user18">User 18</option>  
+          <option value="user19">User 19</option>  
+          <option value="user20">User 20</option>  
+        </select>  
+        
+        <label for="genderDropdown">Select Gender:</label>  
+        <select id="genderDropdown">  
+          <option value="M">Male</option>  
+          <option value="F">Female</option>  
+        </select>  
+        <br>
+        <label>CPM: <input type="text" id="cpm" readonly></label><br>  
+        <label>Error Rate: <input type="text" id="error_rate" readonly></label><br>  
+        <label>Dwell Avg: <input type="text" id="dwell_avg" readonly></label><br>  
+        <label>Dwell Std Dev: <input type="text" id="dwell_std" readonly></label><br>  
+        <label>Flight Avg: <input type="text" id="flight_avg" readonly></label><br>  
+        <label>Flight Std Dev: <input type="text" id="flight_std" readonly></label><br>  
+        <label>Click Dwell Avg: <input type="text" id="click_dwell_avg" readonly></label><br>  
+        <label>Click Flight Avg: <input type="text" id="click_flight_avg" readonly></label><br>  
+        <label>Pressure Touch: <input type="text" id="pressure_touch" readonly></label><br>  
+        <label>Scroll X: <input type="text" id="scroll_x" readonly></label><br>  
+        <label>Scroll Y: <input type="text" id="scroll_y" readonly></label><br>  
+        <label>Double Clicks: <input type="text" id="double_click" readonly></label><br>  
+        <label>Swipe Speed Avg: <input type="text" id="swipe_speed_avg" readonly></label><br>  
+        <label>Tilt Angle Avg: <input type="text" id="tilt_angle_avg" readonly></label><br>  
+       
+  
+      
+    </form>  
+    <h3>CAPTCHA</h3>  
+    
+    <canvas id="captcha_canvas" width="150" height="50"></canvas><br>
+    <input type="text" id="captcha_input" placeholder="Enter CAPTCHA">
+    <button type="button" onclick="solveCaptcha()">Submit</button>
+    <p id="captcha_message"></p> 
+    <p id="captcha_text">1234</p>  
+    <input type="text" id="captcha_input">  
+    <button onclick="solveCaptcha()">Submit CAPTCHA</button>  
+</div>
+
+</body>  
+</html>
