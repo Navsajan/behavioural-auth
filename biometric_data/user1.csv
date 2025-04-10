@@ -1,3 +1,4 @@
 cpm,error_rate,dwell_avg,dwell_std,flight_avg,flight_std,click_dwell_avg,click_flight_avg,pressure_touch,scroll_x,scroll_y,double_click,swipe_speed_avg,tilt_angle_avg,gender
 45.28,,129.17,99.45,387.11,491.51,0,0,,1510.12,368.85,,,,M
 53.48,6,4.82,3.79,732.80,879.08,0,0,0.50 (Medium Touch),358.02,538.45,2,,10.26,M
+40.30,1,118.30,75.73,660.44,383.13,0,0,,1935.35,390.80,,,,M
