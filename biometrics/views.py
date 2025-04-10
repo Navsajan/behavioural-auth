@@ -7,10 +7,20 @@ import csv
 import os
 from django.conf import settings
 from django.shortcuts import render
+import firebase_admin
+from firebase_admin import credentials
+from firebase_admin import db
+
 
 # Optional: Create a directory to store CSVs if not exists
 CSV_DIR = os.path.join(settings.BASE_DIR, 'biometric_data')
 os.makedirs(CSV_DIR, exist_ok=True)
+cred = credentials.Certificate('secrets/firebase_key.json')
+
+firebase_admin.initialize_app(cred, {
+    'databaseURL': 'https://behavioural-auth-default-rtdb.firebaseio.com/'
+})
+
 
 def index(request):
     return render(request, 'index.html')
@@ -46,10 +56,22 @@ def save_behavior(request):
 
                 data['gender'] = gender
                 writer.writerow({field: data.get(field, '') for field in fieldnames})
+            store_behavioral_data_to_firebase(user, gender, data)    
 
-            return JsonResponse({'status': 'success', 'message': 'Data saved successfully.'})
+            return JsonResponse({'status': 'success', 'message': 'Data saved to CSV and Firebase successfully.'})
 
         except Exception as e:
             return JsonResponse({'status': 'error', 'message': str(e)}, status=400)
 
     return JsonResponse({'status': 'error', 'message': 'Invalid request method.'}, status=405)
+
+def store_behavioral_data_to_firebase(user_id, gender, data_dict):
+    """
+    Push data to Firebase under each user.
+    """
+    ref = db.reference(f"/users/{user_id}")
+    ref.push({
+        "gender": gender,
+        "data": data_dict
+    })
+    
