@@ -16,7 +16,13 @@ from firebase_admin import db
 CSV_DIR = os.path.join(settings.BASE_DIR, 'biometric_data')
 os.makedirs(CSV_DIR, exist_ok=True)
 firebase_json = os.getenv("FIREBASE_KEY")
-cred = credentials.Certificate('secrets/firebase_key.json')
+
+if firebase_json is None:
+    raise Exception("FIREBASE_KEY environment variable not set")
+
+firebase_dict = json.loads(firebase_json)
+cred = credentials.Certificate(firebase_dict)
+
 
 firebase_admin.initialize_app(cred, {
     'databaseURL': 'https://behavioural-auth-default-rtdb.firebaseio.com/'
