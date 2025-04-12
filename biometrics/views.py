@@ -15,13 +15,10 @@ from firebase_admin import db
 # Optional: Create a directory to store CSVs if not exists
 CSV_DIR = os.path.join(settings.BASE_DIR, 'biometric_data')
 os.makedirs(CSV_DIR, exist_ok=True)
-firebase_json = os.getenv("FIREBASE_KEY")
 
-if firebase_json is None:
-    raise Exception("FIREBASE_KEY environment variable not set")
 
-firebase_dict = json.loads(firebase_json)
-cred = credentials.Certificate(firebase_dict)
+
+cred = credentials.Certificate('/etc/secrets/firebase_key.json')
 
 
 firebase_admin.initialize_app(cred, {
