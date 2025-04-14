@@ -79,3 +79,15 @@ def store_behavioral_data_to_firebase(user_id, gender, data_dict):
         "data": data_dict
     })
     
+def firebase_summary(request):
+    ref = db.reference("users")
+    users_data = ref.get()
+
+    summary = []
+    for user_id, records in (users_data or {}).items():
+        summary.append({
+            "user": user_id,
+            "count": len(records)
+        })
+
+    return render(request, 'summary.html', {"summary": summary})

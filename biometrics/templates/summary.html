@@ -1,0 +1,18 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>User Summary</title>
+</head>
+<body>
+    <h2>User Data Summary</h2>
+    <table border="1">
+        <tr><th>User</th><th>Records</th></tr>
+        {% for item in summary %}
+        <tr>
+            <td>{{ item.user }}</td>
+            <td>{{ item.count }}</td>
+        </tr>
+        {% endfor %}
+    </table>
+</body>
+</html>
