@@ -221,7 +221,7 @@ function categorizePressure(pressureTouch) {
 
 function solveCaptcha() {  
     let userInput = document.getElementById("captcha_input").value;  
-    let captchaText = document.getElementById("captcha_text").textContent;  
+    
     if (userInput === generatedCaptcha) {  
         alert("CAPTCHA Solved!");  
 
@@ -323,9 +323,7 @@ window.onload = generateCaptcha;
     <input type="text" id="captcha_input" placeholder="Enter CAPTCHA">
     <button type="button" onclick="solveCaptcha()">Submit</button>
     <p id="captcha_message"></p> 
-    <p id="captcha_text">1234</p>  
-    <input type="text" id="captcha_input">  
-    <button onclick="solveCaptcha()">Submit CAPTCHA</button>  
+ 
 </div>
 
 </body>  
