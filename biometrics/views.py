@@ -10,6 +10,7 @@ from django.shortcuts import render
 import firebase_admin
 from firebase_admin import credentials
 from firebase_admin import db
+from django.http import HttpResponse
 
 
 # Optional: Create a directory to store CSVs if not exists
@@ -91,3 +92,52 @@ def firebase_summary(request):
         })
 
     return render(request, 'summary.html', {"summary": summary})
+
+def export_csv(request):
+    # Reference to all users in Firebase
+    ref = db.reference("/users")
+    users_data = ref.get()
+
+    if not users_data:
+        return HttpResponse("No data to export.", content_type="text/plain")
+
+    # Define response as CSV
+    response = HttpResponse(content_type='text/csv')
+    response['Content-Disposition'] = 'attachment; filename="firebase_export.csv"'
+
+    writer = csv.writer(response)
+
+    # Write headers
+    headers = [
+        'user', 'gender', 'cpm', 'error_rate', 'dwell_avg', 'dwell_std',
+        'flight_avg', 'flight_std', 'click_dwell_avg', 'click_flight_avg',
+        'pressure_touch', 'scroll_x', 'scroll_y', 'double_click',
+        'swipe_speed_avg', 'tilt_angle_avg'
+    ]
+    writer.writerow(headers)
+
+    for user_id, entries in users_data.items():
+        for entry_id, entry in entries.items():
+            gender = entry.get('gender', '')
+            data = entry.get('data', {})
+            row = [
+                user_id,
+                gender,
+                data.get('cpm', ''),
+                data.get('error_rate', ''),
+                data.get('dwell_avg', ''),
+                data.get('dwell_std', ''),
+                data.get('flight_avg', ''),
+                data.get('flight_std', ''),
+                data.get('click_dwell_avg', ''),
+                data.get('click_flight_avg', ''),
+                data.get('pressure_touch', ''),
+                data.get('scroll_x', ''),
+                data.get('scroll_y', ''),
+                data.get('double_click', ''),
+                data.get('swipe_speed_avg', ''),
+                data.get('tilt_angle_avg', '')
+            ]
+            writer.writerow(row)
+
+    return response
