@@ -11,6 +11,10 @@ import firebase_admin
 from firebase_admin import credentials
 from firebase_admin import db
 from django.http import HttpResponse
+import io
+import json
+import openpyxl
+from openpyxl.utils import get_column_letter
 
 
 # Optional: Create a directory to store CSVs if not exists
@@ -30,6 +34,8 @@ firebase_admin.initialize_app(cred, {
 def index(request):
     return render(request, 'index.html')
 
+def export_page(request):
+    return render(request, 'export.html')
 
 @csrf_exempt
 def save_behavior(request):
@@ -140,4 +146,33 @@ def export_csv(request):
             ]
             writer.writerow(row)
 
+    return response
+
+def export_json(request):
+    ref = db.reference('/users/')
+    data = ref.get()
+
+    response = JsonResponse(data, safe=False)
+    response['Content-Disposition'] = 'attachment; filename="export.json"'
+    return response
+
+def export_xlsx(request):
+    ref = db.reference('/users/')
+    data = ref.get()
+
+    wb = openpyxl.Workbook()
+    wb.remove(wb.active)
+
+    for user, entries in data.items():
+        ws = wb.create_sheet(title=user)
+        ws.append(['Gender', 'Data Key', 'Value'])
+
+        for entry_id, entry_data in entries.items():
+            gender = entry_data.get('gender', 'N/A')
+            for k, v in entry_data['data'].items():
+                ws.append([gender, k, v])
+
+    response = HttpResponse(content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')
+    response['Content-Disposition'] = 'attachment; filename="export.xlsx"'
+    wb.save(response)
     return response
